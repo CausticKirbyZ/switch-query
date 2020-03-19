@@ -1,0 +1,8 @@
+package: switch-query
+Version: 0.1-0
+Section: base
+Priority: optional
+Architecture: all 
+Depends: ruby(>= 2.3.0)
+Maintainer: CausticKirbyZ https://github.com/CausticKirbyZ/switch-query
+Description: Command line tool to easily query and manage cisco switches.
