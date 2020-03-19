@@ -1,0 +1,181 @@
+#!/usr/bin/ruby
+
+require 'optparse'
+require 'io/console'
+
+require_relative '/usr/share/switch-query/Cisco_Manager'
+# require_relative 'Cisco_Manager'
+
+#
+# todo 
+# add ssh support
+#
+
+# set options for tool
+options = {}
+options[:show_mac] = false
+options[:verbose] = false
+options[:stats] = false
+options[:uptime] = false
+options[:hosts] = []
+options[:username] = nil
+options[:password] = nil
+options[:vlanbrief] = false
+options[:protocol] = "telnet"
+options[:show_run] = false
+
+OptionParser.new do |opts|
+    opts.banner = "Ruby Tool to manage Cisco switches
+    
+    Usage:  switch_query [-muv] [-U password] [-P password] [-p enablepassword] [-r protocol] [-h hostslist]"
+
+    opts.on("-U","--Username [USERNAME]", String, "Username" ) do |username| 
+        options[:username] = username 
+    end
+    opts.on("-P","--Password [PASSWORD]", String, "Password") do |pass|
+        options[:password] = pass
+    end
+    opts.on("-p","--enablepassword [PASS]", String, "Enable Password") do |pass| 
+        options[:enablepassword] = pass 
+    end
+    opts.on("-r","--protocol [PROTOCOL]", String, "Protocol for communicating with the switch defaults to telnet") do |pro| 
+        options[:protocol] = pro 
+    end
+
+    opts.on("-R", "--show-run","Parse the Show run cmd") do |run| 
+        options[:show_run] = true
+    end
+    opts.on("-m", "--show-mac-table", "Shows the mac table of the target switch") do |m| 
+        options[:show_mac] = true
+    end
+    opts.on("-u","--uptime", "Shows the uptime") do |u| 
+        options[:uptime] = true
+    end
+    opts.on("--stats","Shows Interface network Stats") do |stats|
+        options[:stats] = true 
+    end
+    opts.on("--vlan","Shows vlan brief") do |vl|
+        options[:vlanbrief] = true 
+    end
+
+    opts.on("-h","--hosts [HOSTLIST]", Array, "Host arry") do |hosts|
+        options[:hosts] |= [*hosts]
+    end
+
+    opts.on("-v","--verbose","Toggles verbosity") do |v| 
+        options[:verbose] = true 
+    end
+
+    opts.on("--name-servers","Display Name Servers") do |ns| 
+        options[:nameservers] = true
+    end 
+    
+end.parse!
+
+options[:hosts] |= ARGV
+
+begin 
+    # check if user/pass/hosts passed to tool
+    if options[:username] == nil
+        puts "Username: " 
+        options[:username] = gets.chomp
+    end
+
+    if options[:password] == nil
+        puts "Password: "
+        options[:password] = STDIN.noecho(&:gets).chomp
+    end
+    if options[:enablepassword] == nil
+        options[:enablepassword] = options[:password]
+    end
+
+    if options[:hosts].empty?
+        puts "Host: "
+        options[:hosts] = gets.chomp.split(',')
+    end
+
+
+    # def some functions
+    def print_verbose(opts,string)
+        if (opts[:verbose])
+            puts string
+        end
+    end
+
+rescue Interrupt
+    exit(1)
+end
+
+
+begin
+    hostlist = options[:hosts]
+    print_verbose options,options
+
+for host in hostlist do
+    begin 
+        print_verbose options, "\e[33m#{'Starting connection...'}\e[0m"
+        ct = Cisco_Manager.new(protocol: options[:protocol], hostname: host, password: options[:password], enablepassword: options[:enablepassword])
+        print_verbose options,"\e[32m#{'Connection established!!'}\e[0m"
+
+        print_verbose options,"=========================================="
+        print_verbose options,host
+        print_verbose options,"=========================================="
+
+
+        if options[:show_mac]
+          mactable = ct.get_mac_table
+          if mactable.length < 1 # some switches have "show mac-address"
+              mactable = ct.get_mac_table2
+          end
+        
+          mactable.each_index do |i|
+              mactable[i].each do |item| 
+                  print "#{item} "
+              end
+              print "\n"
+          end
+        end
+
+        if options[:uptime]
+            puts ct.get_uptime
+        end
+
+        if options[:vlanbrief] 
+            puts "VLAN NAME STATUS PORTS"
+            ct.get_vlan_brief.each do |vlan|
+                printf "%-4s %-20s %-10s" , vlan["Vlan"], vlan['Name'], vlan['Status']
+                print vlan['Ports'] unless vlan['Ports'].empty?
+                print "\n"
+            end
+        end
+        
+        if options[:stats]
+            puts "STATUS INTERFACE                 RXBS       TXBS"
+            # ct.get_throughput_hash.each do |h| puts "#{h[:Status]} #{h[:Interface]} #{h[:RXBS]} #{h[:TXBS]}" end
+            ct.get_throughput_hash.each do |h| printf "%-6s %-25s %-10s %-10s\n", h[:Status],h[:Interface],h[:RXBS],h[:TXBS] end # add formatting 
+            txrx = ct.get_throughput
+            puts "Transmit: #{(txrx[0] / 1000.0 / 1000.0).round 2} Mb/s     Receive: #{(txrx[1] /1000.0 /1000.0).round 2} Mb/s"
+        end
+
+        if options[:nameservers] 
+            puts ct.get_name_servers 
+        end
+        
+
+        if options[:show_run]
+           ct.enable
+        #    sleep 1
+           puts ct.get_interfaces
+        end
+
+    rescue SystemExit, Interrupt, SignalException => e
+        $stdout.puts "Closing Connections."
+    ensure
+        print_verbose options, "\e[33m#{'Closing connection...'}\e[0m"
+        ct.close
+        print_verbose options, "\e[32m#{'Conection Closed!'}\e[0m"
+    end
+end
+rescue
+end
+
