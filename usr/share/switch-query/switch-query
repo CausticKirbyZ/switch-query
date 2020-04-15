@@ -3,8 +3,8 @@
 require 'optparse'
 require 'io/console'
 
-require_relative '/usr/share/switch-query/Cisco_Manager'
-# require_relative 'Cisco_Manager'
+#require_relative '/usr/share/switch-query/Cisco_Manager'
+require_relative 'Cisco_Manager'
 
 #
 # todo 
@@ -58,7 +58,7 @@ OptionParser.new do |opts|
         options[:vlanbrief] = true 
     end
 
-    opts.on("-h","--hosts [HOSTLIST]", Array, "Host arry") do |hosts|
+    opts.on("-h","--hosts [HOSTLIST]", Array, "Host array") do |hosts|
         options[:hosts] |= [*hosts]
     end
 
@@ -112,7 +112,7 @@ begin
     print_verbose options,options
 
 for host in hostlist do
-    begin 
+    begin
         print_verbose options, "\e[33m#{'Starting connection...'}\e[0m"
         ct = Cisco_Manager.new(protocol: options[:protocol], hostname: host, password: options[:password], enablepassword: options[:enablepassword])
         print_verbose options,"\e[32m#{'Connection established!!'}\e[0m"
@@ -123,7 +123,12 @@ for host in hostlist do
 
 
         if options[:show_mac]
-          mactable = ct.get_mac_table
+          print_verbose options, "Showing mac table"
+          begin 
+              mactable = ct.get_mac_table
+          rescue 
+          end
+          print_verbose options, "Mac table Length: #{ mactable.length }"
           if mactable.length < 1 # some switches have "show mac-address"
               mactable = ct.get_mac_table2
           end

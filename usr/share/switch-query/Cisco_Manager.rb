@@ -88,8 +88,8 @@ class Cisco_Manager
 
     def get_mac_table()
         array = []
-        @tn.cmd({"String" => "show mac-address-table"}) 
-        @tn.waitfor(/criterion/) do |table|
+        @tn.cmd({"String" => "show mac-address-table","Timeout" => 100}) do |table|
+        # @tn.waitfor(/criterion/) do |table|
             reg = /\d+\s+([a-fA-F0-9]{4}\.{0,1}){3}\s+[A-Z]+\s+(Fa|Gi|Te)(\d\/)*(\d+)/
             # puts table
             table.split("\n").each do |line|
@@ -104,7 +104,7 @@ class Cisco_Manager
 
     def get_mac_table2()  # depending on cisco ios version you may have "show mac-address-table" or "show mac address-table"
         array = []
-        @tn.cmd({"String" => "show mac address-table"}) 
+        @tn.cmd({"String" => "show mac address-table", "Timeout" => 100})
         @tn.waitfor(/criterion/) do |table|
             reg = /\d+\s+([a-fA-F0-9]{4}\.{0,1}){3}\s+[A-Z]+\s+(Fa|Gi|Te)(\d\/)*(\d+)/
             # puts table
